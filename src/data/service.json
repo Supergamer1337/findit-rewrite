@@ -1,0 +1,208 @@
+[
+    {
+        "category": "Food",
+        "services": [
+            {
+                "title": "mat",
+                "url": "http://mat.chalmers.it",
+                "description": "A simple site for quickly accessing menus for different food places around campus Johanneberg.",
+                "github_url": "https://github.com/cthit/mat",
+                "icon": "cutlery"
+            },
+            {
+                "title": "eatIT",
+                "url": "http://eatit.chalmers.it",
+                "description": "A simple web system for organizing food orders, such as pizza.",
+                "github_url": "https://github.com/cthit/eatit",
+                "icon": "cutlery"
+            },
+            {
+                "title": "Gibbes",
+                "url": "https://gibbes.chalmers.it",
+                "description": "An interactive menu for our most beloved pizzeria, Gibraltar pizzeria!",
+                "github_url": "https://github.com/cthit/gibbes",
+                "icon": "cutlery"
+            },
+            {
+                "title": "Sannes",
+                "url": "https://sannes.chalmers.it",
+                "description": "An interactive menu for our most beloved pizzeria, Sannegårdens!",
+                "github_url": "https://github.com/cthit/sannes",
+                "icon": "cutlery"
+            }
+        ]
+    },
+    {
+        "category": "Hubben",
+        "services": [
+            {
+                "title": "bookIT",
+                "url": "http://bookit.chalmers.it",
+                "description": "Booking system for Hubben 2.2, HASen and the Hubben group room.",
+                "github_url": "https://github.com/cthit/bookIT",
+                "icon": "calendar"
+            },
+            {
+                "title": "hubbIT",
+                "url": "http://hubbit.chalmers.it",
+                "description": "See who is currently in Hubben 2.2 and log your visits for glory.",
+                "github_url": "https://github.com/cthit/hubbit",
+                "icon": "spy"
+            },
+            {
+                "title": "hueIT",
+                "url": "https://huego.chalmers.it",
+                "description": "Interface for controlling Philips Hue Lights in Hubben 2.2.",
+                "github_url": "https://github.com/cthit/hueIT-electric-boogaloo",
+                "icon": "bulb"
+            },
+            {
+                "title": "singIT",
+                "url": "https://singit.chalmers.it",
+                "description": "List of all songs available in Hubben's karaoke.",
+                "github_url": "https://github.com/cthit/singit",
+                "icon": "microphone"
+            },
+            {
+                "title": "SuggestIT",
+                "url": "https://suggestit.chalmers.it",
+                "description": "Submit suggestions for Hubben 2.2 or the IT student division.",
+                "github_url": "https://github.com/cthit/SuggestIT",
+                "icon": "bulb"
+            },
+            {
+                "title": "SongBook",
+                "url": "https://songbook.chalmers.it",
+                "description": "The official digital songbook of the Software Engineering Student Division (IT).",
+                "github_url": "https://github.com/cthit/songbook",
+                "icon": "music"
+            }
+        ]
+    },
+    {
+        "category": "Other Services",
+        "services": [
+            {
+                "title": "findIT",
+                "url": "http://findIT.chalmers.it",
+                "description": "A simple site for browsing the digital services available for Chalmers IT sections students.",
+                "github_url": "https://github.com/cthit/findIT",
+                "icon": "spyglass"
+            },
+            {
+                "title": "chalmers.it",
+                "url": "https://chalmers.it",
+                "description": "Current version of chalmers.it, built with nextjs.",
+                "github_url": "https://github.com/cthit/chalmers.it",
+                "icon": "spy"
+            },
+            {
+                "title": "dockerBoi",
+                "url": "https://docker.chalmers.it",
+                "description": "digIT's very own docker registry!",
+                "github_url": "https://github.com/cthit/dockerBoi",
+                "icon": "ship"
+            },
+            {
+                "title": "hexIT",
+                "url": "https://hex.chalmers.it",
+                "description": "The (un)official color palette for IT",
+                "github_url": "https://github.com/cthit/hexit",
+                "icon": "water"
+            },
+            {
+                "title": "Pins",
+                "url": "https://pins.chalmers.it",
+                "description": "Create templates for printing pins",
+                "github_url": "https://github.com/cthit/pins",
+                "icon": "pins"
+            },
+            {
+                "title": "Receipts",
+                "url": "https://kvitto.chalmers.it",
+                "description": "Create receipts if the originals have been lost",
+                "github_url": "https://github.com/cthit/kvitto",
+                "icon": "receipt"
+            },
+            {
+                "title": "Vikunja",
+                "url": "https://vikunja.chalmers.it",
+                "description": "A self-hosted service for setting up kanban-boards",
+                "github_url": "",
+                "icon": "kanban"
+            },
+            {
+                "title": "Rallly",
+                "url": "https://rallly.chalmers.it",
+                "description": "Meeting scheduling tool",
+                "github_url": "",
+                "icon": "calendar"
+            }
+        ]
+    },
+    {
+        "category": "Learn",
+        "services": [
+            {
+                "title": "GDPR",
+                "url": "http://gdpr.chalmers.it",
+                "description": "Resources for commitiees and societies to better work with gdpr",
+                "github_url": "",
+                "icon": "eye"
+            },
+            {
+                "title": "wikITpedia",
+                "url": "https://wiki.chalmers.it",
+                "description": "A wiki where IT students can share knowledge with each other.",
+                "github_url": "",
+                "icon": "wiki"
+            }
+        ]
+    },
+    {
+        "category": "Links",
+        "services": [
+            {
+                "title": "gIThub",
+                "url": "https://github.com/cthit",
+                "description": "A github page for open-source projects made by and for IT students. Feel free to contribute!",
+                "github_url": "",
+                "icon": "github"
+            },
+            {
+                "title": "Slack",
+                "url": "https://cthit.slack.com",
+                "description": "The IT student divisions slack team.",
+                "github_url": "",
+                "icon": "slack"
+            },
+            {
+                "title": "IT-Event Calendar",
+                "url": "https://calendar.google.com/calendar/embed?src=a55ipd3o49n05cd2eebqo854qs@group.calendar.google.com",
+                "description": "The IT event calendar",
+                "github_url": "",
+                "icon": "calendar"
+            },
+            {
+                "title": "LinkIT",
+                "url": "https://linkit.chalmers.it",
+                "description": "Link shortener for the Software Engineering Student Division (IT).",
+                "github_url": "https://github.com/cthit/LinkIT",
+                "icon": "link"
+            },
+            {
+                "title": "IT merch shop",
+                "url": "https://shop.chalmers.it",
+                "description": "The official place to get IT merch. All questions and motif suggestions can be sent to styrIT.",
+                "github_url": "",
+                "icon": "shopping-cart"
+            },
+            {
+                "title": "FlashIT gallery",
+                "url": "https://flashit.chalmers.it",
+                "description": "A gallery of images from the Software Engineering Student Division (IT).",
+                "github_url": "https://github.com/cthit/flashit-lychee"
+            }
+        ]
+    }
+]

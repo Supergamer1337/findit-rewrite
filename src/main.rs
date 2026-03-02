@@ -1,19 +1,29 @@
 use dioxus::prelude::*;
+use serde::Deserialize;
 
-#[derive(Debug, Clone, Routable, PartialEq)]
-#[rustfmt::skip]
-enum Route {
-    #[layout(Navbar)]
-    #[route("/")]
-    Home {},
-    #[route("/blog/:id")]
-    Blog { id: i32 },
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+struct Category {
+    category: String,
+    services: Vec<Service>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+struct Service {
+    title: String,
+    url: String,
+    description: String,
+    #[serde(default)]
+    github_url: Option<String>,
+    #[serde(default)]
+    icon: Option<String>,
 }
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
-const HEADER_SVG: Asset = asset!("/assets/header.svg");
-const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
+const HAMBURGER_ICON: Asset = asset!("/assets/images/Hamburger_icon.png");
+
+// Embed the JSON data into the binary
+const SERVICE_DATA: &str = include_str!("data/service.json");
 
 fn main() {
     dioxus::launch(App);
@@ -21,114 +31,119 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    let categories: Vec<Category> = serde_json::from_str(SERVICE_DATA).unwrap_or_else(|_| vec![]);
+
     rsx! {
         document::Link { rel: "icon", href: FAVICON }
-        document::Link { rel: "stylesheet", href: MAIN_CSS } document::Link { rel: "stylesheet", href: TAILWIND_CSS }
-        Router::<Route> {}
-    }
-}
+        document::Link { rel: "stylesheet", href: MAIN_CSS }
 
-#[component]
-pub fn Hero() -> Element {
-    rsx! {
-        div {
-            id: "hero",
-            img { src: HEADER_SVG, id: "header" }
-            div { id: "links",
-                a { href: "https://dioxuslabs.com/learn/0.7/", "📚 Learn Dioxus" }
-                a { href: "https://dioxuslabs.com/awesome", "🚀 Awesome Dioxus" }
-                a { href: "https://github.com/dioxus-community/", "📡 Community Libraries" }
-                a { href: "https://github.com/DioxusLabs/sdk", "⚙️ Dioxus Development Kit" }
-                a { href: "https://marketplace.visualstudio.com/items?itemName=DioxusLabs.dioxus", "💫 VSCode Extension" }
-                a { href: "https://discord.gg/XgGxMSkvUM", "👋 Community Discord" }
-            }
-        }
-    }
-}
+        div { class: "app-container",
+            Header { categories: categories.clone() }
 
-/// Home page
-#[component]
-fn Home() -> Element {
-    rsx! {
-        Hero {}
-        Echo {}
-    }
-}
-
-/// Blog page
-#[component]
-pub fn Blog(id: i32) -> Element {
-    rsx! {
-        div {
-            id: "blog",
-
-            // Content
-            h1 { "This is blog #{id}!" }
-            p { "In blog #{id}, we show how the Dioxus router works and how URL parameters can be passed as props to our route components." }
-
-            // Navigation links
-            Link {
-                to: Route::Blog { id: id - 1 },
-                "Previous"
-            }
-            span { " <---> " }
-            Link {
-                to: Route::Blog { id: id + 1 },
-                "Next"
-            }
-        }
-    }
-}
-
-/// Shared navbar component.
-#[component]
-fn Navbar() -> Element {
-    rsx! {
-        div {
-            id: "navbar",
-            Link {
-                to: Route::Home {},
-                "Home"
-            }
-            Link {
-                to: Route::Blog { id: 1 },
-                "Blog"
-            }
-        }
-
-        Outlet::<Route> {}
-    }
-}
-
-/// Echo component that demonstrates fullstack server functions.
-#[component]
-fn Echo() -> Element {
-    let mut response = use_signal(|| String::new());
-
-    rsx! {
-        div {
-            id: "echo",
-            h4 { "ServerFn Echo" }
-            input {
-                placeholder: "Type here to echo...",
-                oninput:  move |event| async move {
-                    let data = echo_server(event.value()).await.unwrap();
-                    response.set(data);
-                },
-            }
-
-            if !response().is_empty() {
-                p {
-                    "Server echoed: "
-                    i { "{response}" }
+            main { class: "main-content",
+                for category in categories {
+                    CategoryList { category }
                 }
             }
         }
     }
 }
 
-/// Echo the user input on the server.
-#[post("/api/echo")]
-async fn echo_server(input: String) -> Result<String, ServerFnError> {
-    Ok(input)
+#[component]
+fn Header(categories: Vec<Category>) -> Element {
+    let mut show_nav = use_signal(|| false);
+
+    rsx! {
+        nav { class: "header-nav",
+            h1 { class: "header-title", "findIT" }
+
+            div { class: "header-links-desktop",
+                for cat in categories.clone() {
+                    a { href: "#{cat.category}", "{cat.category}" }
+                }
+            }
+
+            button {
+                class: "header-mobile-toggle",
+                onclick: move |_| show_nav.toggle(),
+                img { src: HAMBURGER_ICON, alt: "Menu" }
+            }
+
+            if show_nav() {
+                div { class: "header-links-mobile",
+                    for cat in categories {
+                        a {
+                            href: "#{cat.category}",
+                            onclick: move |_| show_nav.set(false),
+                            "{cat.category}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn CategoryList(category: Category) -> Element {
+    rsx! {
+        div { class: "category-section",
+            div { id: "{category.category}", class: "category-anchor" }
+
+            h2 { class: "category-title", "{category.category}" }
+
+            div { class: "category-grid",
+                for service in category.services {
+                    ServiceCard { service }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn ServiceCard(service: Service) -> Element {
+    let icon_src = if let Some(icon) = &service.icon {
+        format!("/images/{}.svg", icon)
+    } else {
+        format!("{}/favicon.ico", service.url)
+    };
+
+    rsx! {
+        div { class: "service-card",
+            div { class: "service-card-header",
+                img {
+                    class: "service-icon",
+                    src: "{icon_src}",
+                    alt: "{service.title} icon",
+                }
+                a {
+                    class: "service-title",
+                    href: "{service.url}",
+                    target: "_blank",
+                    "{service.title}"
+                }
+            }
+
+            p { class: "service-description", "{service.description}" }
+
+            if let Some(github) = &service.github_url {
+                if !github.is_empty() {
+                    a {
+                        class: "service-github",
+                        href: "{github}",
+                        target: "_blank",
+                        "GITHUB"
+                    }
+                }
+            }
+
+            a {
+                class: "service-open-btn",
+                href: "{service.url}",
+                target: "_blank",
+                "OPEN SERVICE"
+            }
+        }
+    }
 }
