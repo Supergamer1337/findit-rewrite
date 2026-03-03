@@ -1,5 +1,5 @@
 use crate::models::{Category, Service};
-use dioxus::prelude::*;
+use dioxus::{fullstack::headers::Server, prelude::*};
 
 /// Fetches services from Docker containers with `findit.enable=true`.
 ///
