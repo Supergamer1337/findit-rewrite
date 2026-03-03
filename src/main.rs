@@ -1,28 +1,110 @@
 use dioxus::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+const FAVICON: Asset = asset!("/assets/favicon.ico");
+const MAIN_CSS: Asset = asset!("/assets/main.css");
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct Service {
+    title: String,
+    url: String,
+    description: String,
+    github_url: Option<String>,
+    icon: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct Category {
     category: String,
     services: Vec<Service>,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-struct Service {
-    title: String,
-    url: String,
-    description: String,
-    #[serde(default)]
-    github_url: Option<String>,
-    #[serde(default)]
-    icon: Option<String>,
+/// Query the Docker socket for all running containers that have the
+/// `findit.enable=true` label, then map their labels into `Vec<Category>`.
+///
+/// Label schema (all prefixed with `findit.`):
+///   findit.enable      = "true"   — required opt-in marker
+///   findit.title       = "..."    — required
+///   findit.url         = "..."    — required
+///   findit.description = "..."    — required
+///   findit.category    = "..."    — required (used for grouping)
+///   findit.github_url  = "..."    — optional
+///   findit.icon        = "..."    — optional (maps to /images/{icon}.svg)
+#[server]
+async fn get_services() -> Result<Vec<Category>, ServerFnError> {
+    use bollard::Docker;
+    use bollard::query_parameters::ListContainersOptionsBuilder;
+    use std::collections::HashMap;
+
+    let docker = Docker::connect_with_local_defaults()
+        .map_err(|e| ServerFnError::new(format!("Failed to connect to Docker: {e}")))?;
+
+    let options = ListContainersOptionsBuilder::default()
+        .all(false) // only running containers
+        .filters(&HashMap::from([(
+            "label",
+            vec!["findit.enable=true"],
+        )]))
+        .build();
+
+    let containers = docker
+        .list_containers(Some(options))
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to list containers: {e}")))?;
+
+    // Group services by category
+    let mut categories: HashMap<String, Vec<Service>> = HashMap::new();
+
+    for container in containers {
+        let labels = container.labels.unwrap_or_default();
+
+        // Skip containers missing any required label
+        let (Some(title), Some(url), Some(description), Some(category)) = (
+            labels.get("findit.title"),
+            labels.get("findit.url"),
+            labels.get("findit.description"),
+            labels.get("findit.category"),
+        ) else {
+            continue;
+        };
+
+        let github_url = labels
+            .get("findit.github_url")
+            .filter(|v: &&String| !v.is_empty())
+            .cloned();
+
+        let icon = labels
+            .get("findit.icon")
+            .filter(|v: &&String| !v.is_empty())
+            .cloned();
+
+        let service = Service {
+            title: title.clone(),
+            url: url.clone(),
+            description: description.clone(),
+            github_url,
+            icon,
+        };
+
+        categories
+            .entry(category.clone())
+            .or_default()
+            .push(service);
+    }
+
+    // Sort categories alphabetically and collect into Vec<Category>
+    let mut result: Vec<Category> = categories
+        .into_iter()
+        .map(|(category, mut services)| {
+            services.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+            Category { category, services }
+        })
+        .collect();
+
+    result.sort_by(|a, b| a.category.to_lowercase().cmp(&b.category.to_lowercase()));
+
+    Ok(result)
 }
-
-const FAVICON: Asset = asset!("/assets/favicon.ico");
-const MAIN_CSS: Asset = asset!("/assets/main.css");
-
-// Embed the JSON data into the binary
-const SERVICE_DATA: &str = include_str!("data/service.json");
 
 fn main() {
     dioxus::launch(App);
@@ -30,7 +112,29 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let categories: Vec<Category> = serde_json::from_str(SERVICE_DATA).unwrap_or_else(|_| vec![]);
+    let categories = use_server_future(get_services)?;
+
+    let categories = match categories.value()() {
+        Some(Ok(cats)) => cats,
+        Some(Err(e)) => {
+            return rsx! {
+                document::Link { rel: "icon", href: FAVICON }
+                document::Link { rel: "stylesheet", href: MAIN_CSS }
+                div { class: "app-container",
+                    p { class: "error-message", "Failed to load services: {e}" }
+                }
+            };
+        }
+        None => {
+            return rsx! {
+                document::Link { rel: "icon", href: FAVICON }
+                document::Link { rel: "stylesheet", href: MAIN_CSS }
+                div { class: "app-container",
+                    p { class: "loading-message", "Loading services..." }
+                }
+            };
+        }
+    };
 
     rsx! {
         document::Link { rel: "icon", href: FAVICON }

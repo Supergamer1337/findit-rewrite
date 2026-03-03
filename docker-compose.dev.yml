@@ -1,0 +1,292 @@
+services:
+  # --- Food category ---
+  whoami-mat:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "mat"
+      findit.url: "http://mat.chalmers.it"
+      findit.description: "A simple site for quickly accessing menus for different food places around campus Johanneberg."
+      findit.category: "Food"
+      findit.github_url: "https://github.com/cthit/mat"
+      findit.icon: "cutlery"
+
+  whoami-eatit:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "eatIT"
+      findit.url: "http://eatit.chalmers.it"
+      findit.description: "A simple web system for organizing food orders, such as pizza."
+      findit.category: "Food"
+      findit.github_url: "https://github.com/cthit/eatit"
+      findit.icon: "cutlery"
+
+  whoami-gibbes:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "Gibbes"
+      findit.url: "https://gibbes.chalmers.it"
+      findit.description: "An interactive menu for our most beloved pizzeria, Gibraltar pizzeria!"
+      findit.category: "Food"
+      findit.github_url: "https://github.com/cthit/gibbes"
+      findit.icon: "cutlery"
+
+  whoami-sannes:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "Sannes"
+      findit.url: "https://sannes.chalmers.it"
+      findit.description: "An interactive menu for our most beloved pizzeria, Sannegårdens!"
+      findit.category: "Food"
+      findit.github_url: "https://github.com/cthit/sannes"
+      findit.icon: "cutlery"
+
+  # --- Hubben category ---
+  whoami-bookit:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "bookIT"
+      findit.url: "http://bookit.chalmers.it"
+      findit.description: "Booking system for Hubben 2.2, HASen and the Hubben group room."
+      findit.category: "Hubben"
+      findit.github_url: "https://github.com/cthit/bookIT"
+      findit.icon: "calendar"
+
+  whoami-hubbit:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "hubbIT"
+      findit.url: "http://hubbit.chalmers.it"
+      findit.description: "See who is currently in Hubben 2.2 and log your visits for glory."
+      findit.category: "Hubben"
+      findit.github_url: "https://github.com/cthit/hubbit"
+      findit.icon: "spy"
+
+  whoami-hueit:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "hueIT"
+      findit.url: "https://huego.chalmers.it"
+      findit.description: "Interface for controlling Philips Hue Lights in Hubben 2.2."
+      findit.category: "Hubben"
+      findit.github_url: "https://github.com/cthit/hueIT-electric-boogaloo"
+      findit.icon: "bulb"
+
+  whoami-singit:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "singIT"
+      findit.url: "https://singit.chalmers.it"
+      findit.description: "List of all songs available in Hubben's karaoke."
+      findit.category: "Hubben"
+      findit.github_url: "https://github.com/cthit/singit"
+      findit.icon: "microphone"
+
+  whoami-suggestit:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "SuggestIT"
+      findit.url: "https://suggestit.chalmers.it"
+      findit.description: "Submit suggestions for Hubben 2.2 or the IT student division."
+      findit.category: "Hubben"
+      findit.github_url: "https://github.com/cthit/SuggestIT"
+      findit.icon: "bulb"
+
+  whoami-songbook:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "SongBook"
+      findit.url: "https://songbook.chalmers.it"
+      findit.description: "The official digital songbook of the Software Engineering Student Division (IT)."
+      findit.category: "Hubben"
+      findit.github_url: "https://github.com/cthit/songbook"
+      findit.icon: "music"
+
+  # --- Services category ---
+  whoami-findit:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "findIT"
+      findit.url: "http://findIT.chalmers.it"
+      findit.description: "A simple site for browsing the digital services available for Chalmers IT sections students."
+      findit.category: "Other Services"
+      findit.github_url: "https://github.com/cthit/findIT"
+      findit.icon: "spyglass"
+
+  whoami-chalmers-it:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "chalmers.it"
+      findit.url: "https://chalmers.it"
+      findit.description: "Current version of chalmers.it, built with nextjs."
+      findit.category: "Other Services"
+      findit.github_url: "https://github.com/cthit/chalmers.it"
+      findit.icon: "spy"
+
+  whoami-dockerboi:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "dockerBoi"
+      findit.url: "https://docker.chalmers.it"
+      findit.description: "digIT's very own docker registry!"
+      findit.category: "Other Services"
+      findit.github_url: "https://github.com/cthit/dockerBoi"
+      findit.icon: "ship"
+
+  whoami-hexit:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "hexIT"
+      findit.url: "https://hex.chalmers.it"
+      findit.description: "The (un)official color palette for IT"
+      findit.category: "Other Services"
+      findit.github_url: "https://github.com/cthit/hexit"
+      findit.icon: "water"
+
+  whoami-pins:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "Pins"
+      findit.url: "https://pins.chalmers.it"
+      findit.description: "Create templates for printing pins"
+      findit.category: "Other Services"
+      findit.github_url: "https://github.com/cthit/pins"
+      findit.icon: "pins"
+
+  whoami-receipts:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "Receipts"
+      findit.url: "https://kvitto.chalmers.it"
+      findit.description: "Create receipts if the originals have been lost"
+      findit.category: "Other Services"
+      findit.github_url: "https://github.com/cthit/kvitto"
+      findit.icon: "receipt"
+
+  whoami-vikunja:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "Vikunja"
+      findit.url: "https://vikunja.chalmers.it"
+      findit.description: "A self-hosted service for setting up kanban-boards"
+      findit.category: "Other Services"
+      findit.github_url: ""
+      findit.icon: "kanban"
+
+  whoami-rallly:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "Rallly"
+      findit.url: "https://rallly.chalmers.it"
+      findit.description: "Meeting scheduling tool"
+      findit.category: "Other Services"
+      findit.github_url: ""
+      findit.icon: "calendar"
+
+  # --- Learn category ---
+  whoami-gdpr:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "GDPR"
+      findit.url: "http://gdpr.chalmers.it"
+      findit.description: "Resources for commitiees and societies to better work with gdpr"
+      findit.category: "Learn"
+      findit.github_url: ""
+      findit.icon: "eye"
+
+  whoami-wikitpedia:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "wikITpedia"
+      findit.url: "https://wiki.chalmers.it"
+      findit.description: "A wiki where IT students can share knowledge with each other."
+      findit.category: "Learn"
+      findit.github_url: ""
+      findit.icon: "wiki"
+
+  # --- Links category ---
+  whoami-github:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "gIThub"
+      findit.url: "https://github.com/cthit"
+      findit.description: "A github page for open-source projects made by and for IT students. Feel free to contribute!"
+      findit.category: "Links"
+      findit.github_url: ""
+      findit.icon: "github"
+
+  whoami-slack:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "Slack"
+      findit.url: "https://cthit.slack.com"
+      findit.description: "The IT student divisions slack team."
+      findit.category: "Links"
+      findit.github_url: ""
+      findit.icon: "slack"
+
+  whoami-it-event-calendar:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "IT-Event Calendar"
+      findit.url: "https://calendar.google.com/calendar/embed?src=a55ipd3o49n05cd2eebqo854qs@group.calendar.google.com"
+      findit.description: "The IT event calendar"
+      findit.category: "Links"
+      findit.github_url: ""
+      findit.icon: "calendar"
+
+  whoami-linkit:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "LinkIT"
+      findit.url: "https://linkit.chalmers.it"
+      findit.description: "Link shortener for the Software Engineering Student Division (IT)."
+      findit.category: "Links"
+      findit.github_url: "https://github.com/cthit/LinkIT"
+      findit.icon: "link"
+
+  whoami-shop:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "IT merch shop"
+      findit.url: "https://shop.chalmers.it"
+      findit.description: "The official place to get IT merch. All questions and motif suggestions can be sent to styrIT."
+      findit.category: "Links"
+      findit.github_url: ""
+      findit.icon: "shopping-cart"
+
+  whoami-flashit:
+    image: traefik/whoami
+    labels:
+      findit.enable: "true"
+      findit.title: "FlashIT gallery"
+      findit.url: "https://flashit.chalmers.it"
+      findit.description: "A gallery of images from the Software Engineering Student Division (IT)."
+      findit.category: "Links"
+      findit.github_url: "https://github.com/cthit/flashit-lychee"
+      # Icon was missing in JSON, leaving as default or empty
+      findit.icon: "image"
