@@ -23,8 +23,7 @@ pub fn Admin() -> Element {
     let mut edit_file_ext = use_signal(|| Option::<String>::None);
     let mut edit_file_label = use_signal(|| "Keep existing image".to_string());
     let mut edit_error = use_signal(|| Option::<String>::None);
-    let mut edit_loading = use_signal(|| false);
-    let mut confirm_delete_id = use_signal(|| Option::<i64>::None);
+     let mut edit_loading = use_signal(|| false);
 
     let mut new_service_title = use_signal(String::new);
     let mut new_service_url = use_signal(String::new);
@@ -45,6 +44,10 @@ pub fn Admin() -> Element {
     let mut edit_service_error = use_signal(|| Option::<String>::None);
     let mut edit_service_loading = use_signal(|| false);
     let mut confirm_delete_service_id = use_signal(|| Option::<i64>::None);
+
+    let mut modal_open = use_signal(|| false);
+    let mut modal_type = use_signal(|| Option::<String>::None);
+
 
     let icon_count = match icons() {
         Some(Ok(icon_list)) => icon_list.len().to_string(),
@@ -89,27 +92,6 @@ pub fn Admin() -> Element {
                             span { class: "admin-overview-label", "Icon library" }
                             strong { class: "admin-overview-value", "{icon_count}" }
                             span { class: "admin-overview-meta", "Available in Docker labels and admin forms" }
-                        }
-                    }
-
-                    div { class: "admin-hero-guide",
-                        h3 { class: "admin-panel-title", "How it works" }
-                        div { class: "admin-guide-grid",
-                            div { class: "admin-guide-card",
-                                span { class: "admin-guide-number", "1" }
-                                p { class: "admin-guide-title", "Add a manual service" }
-                                p { class: "admin-guide-text", "Use the same fields as the Docker label flow so everything stays consistent." }
-                            }
-                            div { class: "admin-guide-card",
-                                span { class: "admin-guide-number", "2" }
-                                p { class: "admin-guide-title", "Choose an icon" }
-                                p { class: "admin-guide-text", "Pick from the shared icon library or leave it empty and rely on the service favicon." }
-                            }
-                            div { class: "admin-guide-card",
-                                span { class: "admin-guide-number", "3" }
-                                p { class: "admin-guide-title", "Review below" }
-                                p { class: "admin-guide-text", "Scroll down to edit or delete services and manage the icon library in one place." }
-                            }
                         }
                     }
                 }
@@ -214,22 +196,107 @@ pub fn Admin() -> Element {
                                 }
                             } else {
                                 rsx! {
+                                {
+                                    // Edit Modal for Services - render based on state, not list iteration
+                                    rsx! {
+                                        if let Some(true) = modal_type().map(|t| t == "service") {
+                                            if let Some(service_id) = edit_service_id() {
+                                                Modal {
+                                                    title: "Edit service".to_string(),
+                                                    is_open: modal_open(),
+                                                    on_close: move |_| modal_open.set(false),
+                                                    div { class: "admin-modal-content",
+                                                        ManualServiceFields {
+                                                            title: edit_service_title,
+                                                            url: edit_service_url,
+                                                            description: edit_service_description,
+                                                            category: edit_service_category,
+                                                            github_url: edit_service_github_url,
+                                                            icon_id: edit_service_icon_id,
+                                                            icon_options: icon_options.clone(),
+                                                        }
+
+                                                        if let Some(err) = edit_service_error() {
+                                                            p { class: "admin-error", "{err}" }
+                                                        }
+
+                                                        div { class: "admin-modal-actions",
+                                                            button {
+                                                                class: "admin-btn admin-btn-primary",
+                                                                disabled: edit_service_loading(),
+                                                                onclick: move |_| {
+                                                                    let title = edit_service_title().trim().to_string();
+                                                                    let url = edit_service_url().trim().to_string();
+                                                                    let description = edit_service_description().trim().to_string();
+                                                                    let category = edit_service_category().trim().to_string();
+
+                                                                    if let Some(err) = validate_service_form(
+                                                                        &title,
+                                                                        &url,
+                                                                        &description,
+                                                                        &category,
+                                                                    ) {
+                                                                        edit_service_error.set(Some(err));
+                                                                        return;
+                                                                    }
+
+                                                                    let github_url = optional_string(edit_service_github_url());
+                                                                    let icon_id = edit_service_icon_id();
+                                                                    edit_service_error.set(None);
+                                                                    edit_service_loading.set(true);
+
+                                                                    spawn(async move {
+                                                                        match update_manual_service(
+                                                                            service_id,
+                                                                            title,
+                                                                            url,
+                                                                            description,
+                                                                            category,
+                                                                            github_url,
+                                                                            icon_id,
+                                                                        )
+                                                                        .await
+                                                                        {
+                                                                            Ok(_) => {
+                                                                                modal_open.set(false);
+                                                                                modal_type.set(None);
+                                                                                edit_service_id.set(None);
+                                                                                manual_services.restart();
+                                                                            }
+                                                                            Err(e) => {
+                                                                                edit_service_error.set(Some(e.to_string()));
+                                                                            }
+                                                                        }
+
+                                                                        edit_service_loading.set(false);
+                                                                    });
+                                                                },
+                                                                if edit_service_loading() { "Saving..." } else { "Save" }
+                                                            }
+                                                            button {
+                                                                class: "admin-btn admin-btn-secondary",
+                                                                onclick: move |_| {
+                                                                    modal_open.set(false);
+                                                                    modal_type.set(None);
+                                                                    edit_service_id.set(None);
+                                                                    edit_service_error.set(None);
+                                                                },
+                                                                "Cancel"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
                                     div { class: "admin-service-grid",
                                         for service in service_list {
                                             ManualServiceCard {
                                                 key: "{service.id}",
                                                 service: service.clone(),
                                                 icon_options: icon_options.clone(),
-                                                is_editing: edit_service_id() == Some(service.id),
-                                                edit_title: edit_service_title,
-                                                edit_url: edit_service_url,
-                                                edit_description: edit_service_description,
-                                                edit_category: edit_service_category,
-                                                edit_github_url: edit_service_github_url,
-                                                edit_icon_id: edit_service_icon_id,
-                                                edit_error: edit_service_error,
-                                                edit_loading: edit_service_loading,
-                                                confirm_delete_id: confirm_delete_service_id,
                                                 on_start_edit: {
                                                     let service = service.clone();
                                                     move |_| {
@@ -242,75 +309,26 @@ pub fn Admin() -> Element {
                                                             .set(service.github_url.clone().unwrap_or_default());
                                                         edit_service_icon_id.set(service.icon_id);
                                                         edit_service_error.set(None);
-                                                    }
-                                                },
-                                                on_cancel_edit: move |_| {
-                                                    edit_service_id.set(None);
-                                                    edit_service_error.set(None);
-                                                },
-                                                on_save_edit: {
-                                                    let service_id = service.id;
-                                                    move |_| {
-                                                        let title = edit_service_title().trim().to_string();
-                                                        let url = edit_service_url().trim().to_string();
-                                                        let description = edit_service_description().trim().to_string();
-                                                        let category = edit_service_category().trim().to_string();
-
-                                                        if let Some(err) = validate_service_form(
-                                                            &title,
-                                                            &url,
-                                                            &description,
-                                                            &category,
-                                                        ) {
-                                                            edit_service_error.set(Some(err));
-                                                            return;
-                                                        }
-
-                                                        let github_url = optional_string(edit_service_github_url());
-                                                        let icon_id = edit_service_icon_id();
-                                                        edit_service_error.set(None);
-                                                        edit_service_loading.set(true);
-
-                                                        spawn(async move {
-                                                            match update_manual_service(
-                                                                service_id,
-                                                                title,
-                                                                url,
-                                                                description,
-                                                                category,
-                                                                github_url,
-                                                                icon_id,
-                                                            )
-                                                            .await
-                                                            {
-                                                                Ok(_) => {
-                                                                    edit_service_id.set(None);
-                                                                    manual_services.restart();
-                                                                }
-                                                                Err(e) => {
-                                                                    edit_service_error.set(Some(e.to_string()));
-                                                                }
-                                                            }
-
-                                                            edit_service_loading.set(false);
-                                                        });
+                                                        modal_type.set(Some("service".to_string()));
+                                                        modal_open.set(true);
                                                     }
                                                 },
                                                 on_request_delete: {
                                                     let service_id = service.id;
-                                                    move |_| confirm_delete_service_id.set(Some(service_id))
-                                                },
-                                                on_confirm_delete: {
-                                                    let service_id = service.id;
                                                     move |_| {
-                                                        confirm_delete_service_id.set(None);
-                                                        spawn(async move {
-                                                            let _ = delete_manual_service(service_id).await;
-                                                            manual_services.restart();
-                                                        });
+                                                        confirm_delete_service_id.set(Some(service_id));
+                                                        // Show confirmation dialog
+                                                        if web_sys::window()
+                                                            .and_then(|w| w.confirm_with_message("Delete this manual service?").ok())
+                                                            .unwrap_or(false)
+                                                        {
+                                                            spawn(async move {
+                                                                let _ = delete_manual_service(service_id).await;
+                                                                manual_services.restart();
+                                                            });
+                                                        }
                                                     }
                                                 },
-                                                on_cancel_delete: move |_| confirm_delete_service_id.set(None),
                                             }
                                         }
                                     }
@@ -437,19 +455,109 @@ pub fn Admin() -> Element {
                                 }
                             } else {
                                 rsx! {
+                                {
+                                    // Edit Modal for Icons
+                                    rsx! {
+                                        if let Some(true) = modal_type().map(|t| t == "icon") {
+                                            if let Some(icon_id) = edit_id() {
+                                                Modal {
+                                                    title: "Edit icon".to_string(),
+                                                    is_open: modal_open(),
+                                                    on_close: move |_| modal_open.set(false),
+                                                    div { class: "admin-modal-content",
+                                                        div { class: "admin-form-group",
+                                                            label { class: "admin-label", "Name" }
+                                                            input {
+                                                                class: "admin-input",
+                                                                r#type: "text",
+                                                                value: "{edit_name}",
+                                                                oninput: move |e| edit_name.set(e.value()),
+                                                            }
+                                                        }
+
+                                                        div { class: "admin-form-group",
+                                                            label { class: "admin-label", "Replace image" }
+                                                            label { class: "admin-file-label",
+                                                                input {
+                                                                    class: "admin-file-input",
+                                                                    r#type: "file",
+                                                                    accept: ".svg,.png,.jpg,.jpeg,.webp,.gif,.ico",
+                                                                    onchange: move |e| {
+                                                                        read_file_to_signal(
+                                                                            e,
+                                                                            edit_file_b64,
+                                                                            edit_file_ext,
+                                                                            edit_file_label,
+                                                                        );
+                                                                    },
+                                                                }
+                                                                span { class: "admin-file-btn", "Choose file" }
+                                                                span { class: "admin-file-name", "{edit_file_label}" }
+                                                            }
+                                                        }
+
+                                                        if let Some(err) = edit_error() {
+                                                            p { class: "admin-error", "{err}" }
+                                                        }
+
+                                                        div { class: "admin-modal-actions",
+                                                            button {
+                                                                class: "admin-btn admin-btn-primary",
+                                                                disabled: edit_loading(),
+                                                                onclick: move |_| {
+                                                                    let name = edit_name().trim().to_lowercase();
+                                                                    if name.is_empty() {
+                                                                        edit_error.set(Some("Name must not be empty.".into()));
+                                                                        return;
+                                                                    }
+
+                                                                    let b64 = edit_file_b64();
+                                                                    let ext = edit_file_ext();
+                                                                    edit_error.set(None);
+                                                                    edit_loading.set(true);
+
+                                                                    spawn(async move {
+                                                                        match update_icon(icon_id, Some(name), b64, ext).await {
+                                                                            Ok(_) => {
+                                                                                modal_open.set(false);
+                                                                                modal_type.set(None);
+                                                                                edit_id.set(None);
+                                                                                icons.restart();
+                                                                                manual_services.restart();
+                                                                            }
+                                                                            Err(e) => {
+                                                                                edit_error.set(Some(e.to_string()));
+                                                                            }
+                                                                        }
+
+                                                                        edit_loading.set(false);
+                                                                    });
+                                                                },
+                                                                if edit_loading() { "Saving..." } else { "Save" }
+                                                            }
+                                                            button {
+                                                                class: "admin-btn admin-btn-secondary",
+                                                                onclick: move |_| {
+                                                                    modal_open.set(false);
+                                                                    modal_type.set(None);
+                                                                    edit_id.set(None);
+                                                                    edit_error.set(None);
+                                                                },
+                                                                "Cancel"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
                                     div { class: "admin-icon-grid",
                                         for icon in icon_list {
                                             IconCard {
                                                 key: "{icon.id}",
                                                 icon: icon.clone(),
-                                                is_editing: edit_id() == Some(icon.id),
-                                                edit_name,
-                                                edit_file_b64,
-                                                edit_file_ext,
-                                                edit_file_label,
-                                                edit_error,
-                                                edit_loading,
-                                                confirm_delete_id,
                                                 on_start_edit: {
                                                     let name = icon.name.clone();
                                                     move |_| {
@@ -459,58 +567,25 @@ pub fn Admin() -> Element {
                                                         edit_file_ext.set(None);
                                                         edit_file_label.set("Keep existing image".into());
                                                         edit_error.set(None);
-                                                    }
-                                                },
-                                                on_cancel_edit: move |_| {
-                                                    edit_id.set(None);
-                                                    edit_error.set(None);
-                                                },
-                                                on_save_edit: {
-                                                    let icon_id = icon.id;
-                                                    move |_| {
-                                                        let name = edit_name().trim().to_lowercase();
-                                                        if name.is_empty() {
-                                                            edit_error.set(Some("Name must not be empty.".into()));
-                                                            return;
-                                                        }
-
-                                                        let b64 = edit_file_b64();
-                                                        let ext = edit_file_ext();
-                                                        edit_error.set(None);
-                                                        edit_loading.set(true);
-
-                                                        spawn(async move {
-                                                            match update_icon(icon_id, Some(name), b64, ext).await {
-                                                                Ok(_) => {
-                                                                    edit_id.set(None);
-                                                                    icons.restart();
-                                                                    manual_services.restart();
-                                                                }
-                                                                Err(e) => {
-                                                                    edit_error.set(Some(e.to_string()));
-                                                                }
-                                                            }
-
-                                                            edit_loading.set(false);
-                                                        });
+                                                        modal_type.set(Some("icon".to_string()));
+                                                        modal_open.set(true);
                                                     }
                                                 },
                                                 on_request_delete: {
                                                     let icon_id = icon.id;
-                                                    move |_| confirm_delete_id.set(Some(icon_id))
-                                                },
-                                                on_confirm_delete: {
-                                                    let icon_id = icon.id;
                                                     move |_| {
-                                                        confirm_delete_id.set(None);
-                                                        spawn(async move {
-                                                            let _ = delete_icon(icon_id).await;
-                                                            icons.restart();
-                                                            manual_services.restart();
-                                                        });
+                                                        if web_sys::window()
+                                                            .and_then(|w| w.confirm_with_message("Delete this icon?").ok())
+                                                            .unwrap_or(false)
+                                                        {
+                                                            spawn(async move {
+                                                                let _ = delete_icon(icon_id).await;
+                                                                icons.restart();
+                                                                manual_services.restart();
+                                                            });
+                                                        }
                                                     }
                                                 },
-                                                on_cancel_delete: move |_| confirm_delete_id.set(None),
                                             }
                                         }
                                     }
@@ -633,24 +708,9 @@ fn ManualServiceFields(
 fn ManualServiceCard(
     service: ManualServiceRecord,
     icon_options: Vec<IconRecord>,
-    is_editing: bool,
-    edit_title: Signal<String>,
-    edit_url: Signal<String>,
-    edit_description: Signal<String>,
-    edit_category: Signal<String>,
-    edit_github_url: Signal<String>,
-    edit_icon_id: Signal<Option<i64>>,
-    edit_error: Signal<Option<String>>,
-    edit_loading: Signal<bool>,
-    confirm_delete_id: Signal<Option<i64>>,
     on_start_edit: EventHandler<MouseEvent>,
-    on_cancel_edit: EventHandler<MouseEvent>,
-    on_save_edit: EventHandler<MouseEvent>,
     on_request_delete: EventHandler<MouseEvent>,
-    on_confirm_delete: EventHandler<MouseEvent>,
-    on_cancel_delete: EventHandler<MouseEvent>,
 ) -> Element {
-    let awaiting_confirm = confirm_delete_id() == Some(service.id);
     let fallback = service
         .title
         .chars()
@@ -659,13 +719,7 @@ fn ManualServiceCard(
         .unwrap_or_else(|| "?".to_string());
 
     rsx! {
-        div {
-            class: if is_editing {
-                "admin-service-card admin-service-card--editing"
-            } else {
-                "admin-service-card"
-            },
-
+        div { class: "admin-service-card",
             div { class: "admin-service-header",
                 div { class: "admin-service-avatar",
                     if let Some(icon_path) = &service.icon_path {
@@ -684,97 +738,49 @@ fn ManualServiceCard(
                 }
             }
 
-            if is_editing {
-                div { class: "admin-service-edit",
-                    ManualServiceFields {
-                        title: edit_title,
-                        url: edit_url,
-                        description: edit_description,
-                        category: edit_category,
-                        github_url: edit_github_url,
-                        icon_id: edit_icon_id,
-                        icon_options,
-                    }
+            div { class: "admin-service-body",
+                p { class: "admin-service-description", "{service.description}" }
 
-                    if let Some(err) = edit_error() {
-                        p { class: "admin-error", "{err}" }
+                div { class: "admin-service-chips",
+                    if let Some(icon_name) = &service.icon_name {
+                        span { class: "admin-service-chip", "Icon: {icon_name}" }
                     }
-
-                    div { class: "admin-icon-actions",
-                        button {
-                            class: "admin-btn admin-btn-primary",
-                            disabled: edit_loading(),
-                            onclick: move |e| on_save_edit.call(e),
-                            if edit_loading() { "Saving..." } else { "Save" }
-                        }
-                        button {
-                            class: "admin-btn admin-btn-secondary",
-                            onclick: move |e| on_cancel_edit.call(e),
-                            "Cancel"
-                        }
+                    if service.github_url.as_ref().is_some_and(|url| !url.is_empty()) {
+                        span { class: "admin-service-chip", "GitHub linked" }
                     }
                 }
-            } else if awaiting_confirm {
-                div { class: "admin-delete-confirm",
-                    p { class: "admin-delete-msg", "Delete this manual service?" }
-                    div { class: "admin-icon-actions",
-                        button {
-                            class: "admin-btn admin-btn-danger",
-                            onclick: move |e| on_confirm_delete.call(e),
-                            "Yes, delete"
-                        }
-                        button {
-                            class: "admin-btn admin-btn-secondary",
-                            onclick: move |e| on_cancel_delete.call(e),
-                            "Cancel"
-                        }
-                    }
-                }
-            } else {
-                div { class: "admin-service-body",
-                    p { class: "admin-service-description", "{service.description}" }
 
-                    div { class: "admin-service-chips",
-                        if let Some(icon_name) = &service.icon_name {
-                            span { class: "admin-service-chip", "Icon: {icon_name}" }
-                        }
-                        if service.github_url.as_ref().is_some_and(|url| !url.is_empty()) {
-                            span { class: "admin-service-chip", "GitHub linked" }
-                        }
-                    }
-
-                    div { class: "admin-service-links",
-                        if let Some(github_url) = &service.github_url {
-                            if !github_url.is_empty() {
-                                a {
-                                    class: "admin-inline-link",
-                                    href: "{github_url}",
-                                    target: "_blank",
-                                    "View source"
-                                }
+                div { class: "admin-service-links",
+                    if let Some(github_url) = &service.github_url {
+                        if !github_url.is_empty() {
+                            a {
+                                class: "admin-inline-link",
+                                href: "{github_url}",
+                                target: "_blank",
+                                "View source"
                             }
                         }
+                    }
 
-                        a {
-                            class: "admin-inline-link",
-                            href: "{service.url}",
-                            target: "_blank",
-                            "Open service"
-                        }
+                    a {
+                        class: "admin-inline-link",
+                        href: "{service.url}",
+                        target: "_blank",
+                        "Open service"
                     }
                 }
+            }
 
-                div { class: "admin-icon-actions",
-                    button {
-                        class: "admin-btn admin-btn-secondary",
-                        onclick: move |e| on_start_edit.call(e),
-                        "Edit"
-                    }
-                    button {
-                        class: "admin-btn admin-btn-danger",
-                        onclick: move |e| on_request_delete.call(e),
-                        "Delete"
-                    }
+            div { class: "admin-icon-actions",
+                button {
+                    class: "admin-btn admin-btn-secondary",
+                    onclick: move |e| on_start_edit.call(e),
+                    "Edit"
+                }
+                button {
+                    class: "admin-btn admin-btn-danger",
+                    onclick: move |e| on_request_delete.call(e),
+                    "Delete"
                 }
             }
         }
@@ -784,25 +790,11 @@ fn ManualServiceCard(
 #[component]
 fn IconCard(
     icon: IconRecord,
-    is_editing: bool,
-    edit_name: Signal<String>,
-    edit_file_b64: Signal<Option<String>>,
-    edit_file_ext: Signal<Option<String>>,
-    edit_file_label: Signal<String>,
-    edit_error: Signal<Option<String>>,
-    edit_loading: Signal<bool>,
-    confirm_delete_id: Signal<Option<i64>>,
     on_start_edit: EventHandler<MouseEvent>,
-    on_cancel_edit: EventHandler<MouseEvent>,
-    on_save_edit: EventHandler<MouseEvent>,
     on_request_delete: EventHandler<MouseEvent>,
-    on_confirm_delete: EventHandler<MouseEvent>,
-    on_cancel_delete: EventHandler<MouseEvent>,
 ) -> Element {
-    let awaiting_confirm = confirm_delete_id() == Some(icon.id);
-
     rsx! {
-        div { class: if is_editing { "admin-icon-card admin-icon-card--editing" } else { "admin-icon-card" },
+        div { class: "admin-icon-card",
             div { class: "admin-icon-preview",
                 img {
                     class: "admin-icon-img",
@@ -811,91 +803,19 @@ fn IconCard(
                 }
             }
 
-            if is_editing {
-                div { class: "admin-icon-edit",
-                    div { class: "admin-form-group",
-                        label { class: "admin-label", "Name" }
-                        input {
-                            class: "admin-input",
-                            r#type: "text",
-                            value: "{edit_name}",
-                            oninput: move |e| edit_name.set(e.value()),
-                        }
-                    }
-
-                    div { class: "admin-form-group",
-                        label { class: "admin-label", "Replace image" }
-                        label { class: "admin-file-label",
-                            input {
-                                class: "admin-file-input",
-                                r#type: "file",
-                                accept: ".svg,.png,.jpg,.jpeg,.webp,.gif,.ico",
-                                onchange: move |e| {
-                                    read_file_to_signal(
-                                        e,
-                                        edit_file_b64,
-                                        edit_file_ext,
-                                        edit_file_label,
-                                    );
-                                },
-                            }
-                            span { class: "admin-file-btn", "Choose file" }
-                            span { class: "admin-file-name", "{edit_file_label}" }
-                        }
-                    }
-
-                    if let Some(err) = edit_error() {
-                        p { class: "admin-error", "{err}" }
-                    }
-
-                    div { class: "admin-icon-actions",
-                        button {
-                            class: "admin-btn admin-btn-primary",
-                            disabled: edit_loading(),
-                            onclick: move |e| on_save_edit.call(e),
-                            if edit_loading() { "Saving..." } else { "Save" }
-                        }
-                        button {
-                            class: "admin-btn admin-btn-secondary",
-                            onclick: move |e| on_cancel_edit.call(e),
-                            "Cancel"
-                        }
-                    }
+            div { class: "admin-icon-info",
+                p { class: "admin-icon-name", "{icon.name}" }
+            }
+            div { class: "admin-icon-actions",
+                button {
+                    class: "admin-btn admin-btn-secondary",
+                    onclick: move |e| on_start_edit.call(e),
+                    "Edit"
                 }
-            } else if awaiting_confirm {
-                div { class: "admin-icon-info",
-                    p { class: "admin-icon-name", "{icon.name}" }
-                }
-                div { class: "admin-delete-confirm",
-                    p { class: "admin-delete-msg", "Delete this icon?" }
-                    div { class: "admin-icon-actions",
-                        button {
-                            class: "admin-btn admin-btn-danger",
-                            onclick: move |e| on_confirm_delete.call(e),
-                            "Yes, delete"
-                        }
-                        button {
-                            class: "admin-btn admin-btn-secondary",
-                            onclick: move |e| on_cancel_delete.call(e),
-                            "Cancel"
-                        }
-                    }
-                }
-            } else {
-                div { class: "admin-icon-info",
-                    p { class: "admin-icon-name", "{icon.name}" }
-                }
-                div { class: "admin-icon-actions",
-                    button {
-                        class: "admin-btn admin-btn-secondary",
-                        onclick: move |e| on_start_edit.call(e),
-                        "Edit"
-                    }
-                    button {
-                        class: "admin-btn admin-btn-danger",
-                        onclick: move |e| on_request_delete.call(e),
-                        "Delete"
-                    }
+                button {
+                    class: "admin-btn admin-btn-danger",
+                    onclick: move |e| on_request_delete.call(e),
+                    "Delete"
                 }
             }
         }
@@ -974,4 +894,35 @@ fn read_file_to_signal(
             }
         }
     });
+}
+
+#[component]
+fn Modal(
+    title: String,
+    is_open: bool,
+    children: Element,
+    on_close: EventHandler<()>,
+) -> Element {
+    rsx! {
+        if is_open {
+            // Overlay and modal are siblings so the modal's backdrop-filter
+            // blurs the actual page content, not the overlay in front of it.
+            div { class: "admin-modal-overlay", onclick: move |_| on_close.call(()) }
+            div {
+                class: "admin-modal",
+                onclick: move |e| e.stop_propagation(),
+                div { class: "admin-modal-header",
+                    h2 { class: "admin-modal-title", "{title}" }
+                    button {
+                        class: "admin-modal-close",
+                        onclick: move |_| on_close.call(()),
+                        "×"
+                    }
+                }
+                div { class: "admin-modal-body",
+                    {children}
+                }
+            }
+        }
+    }
 }
