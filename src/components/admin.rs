@@ -7,8 +7,8 @@ use dioxus::prelude::*;
 
 #[component]
 pub fn Admin() -> Element {
-    let mut icons = use_resource(list_icons);
-    let mut manual_services = use_resource(list_manual_services);
+    let mut icons = use_server_future(list_icons)?;
+    let mut manual_services = use_server_future(list_manual_services)?;
 
     // ── Add icon state ────────────────────────────────────────────────────
     let mut new_name = use_signal(String::new);
