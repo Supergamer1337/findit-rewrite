@@ -10,7 +10,6 @@ pub fn Home() -> Element {
     let categories = match categories.value()() {
         Some(Ok(cats)) => cats,
         Some(Err(e)) => {
-            eprintln!("Failed to load services: {e}");
             return rsx! {
                 div { class: "app-container",
                     div { class: "error-container",
@@ -27,7 +26,9 @@ pub fn Home() -> Element {
                             }
                         }
                         h1 { class: "error-title", "Unable to connect" }
-                        p { class: "error-message", "We're having trouble loading services right now. Please ensure the backend is running and try again." }
+                        p { class: "error-message",
+                            "We're having trouble loading services right now. Please ensure the backend is running and try again."
+                        }
                         div { class: "error-actions",
                             button {
                                 class: "btn-primary",
@@ -66,7 +67,9 @@ pub fn Home() -> Element {
                 if categories.is_empty() {
                     div { class: "empty-container",
                         h2 { class: "empty-title", "Nothing here yet" }
-                        p { class: "empty-message", "FindIT can show Docker-discovered services and manual services from the admin panel. Add one from either source to populate the dashboard." }
+                        p { class: "empty-message",
+                            "FindIT can show Docker-discovered services and manual services from the admin panel. Add one from either source to populate the dashboard."
+                        }
                         div { class: "empty-help",
                             span { class: "empty-help-title", "Docker Labels" }
                             ul { class: "empty-help-list",
@@ -76,12 +79,20 @@ pub fn Home() -> Element {
                                 li { "findit.description=..." }
                                 li { "findit.category=..." }
                             }
-                            span { class: "empty-help-title", style: "margin-top: 1rem;", "Optional Labels" }
+                            span {
+                                class: "empty-help-title",
+                                style: "margin-top: 1rem;",
+                                "Optional Labels"
+                            }
                             ul { class: "empty-help-list",
                                 li { "findit.github_url=..." }
                                 li { "findit.icon=..." }
                             }
-                            span { class: "empty-help-title", style: "margin-top: 1rem;", "Manual Services" }
+                            span {
+                                class: "empty-help-title",
+                                style: "margin-top: 1rem;",
+                                "Manual Services"
+                            }
                             ul { class: "empty-help-list",
                                 li { "Open /admin to add services without Docker labels" }
                                 li { "Choose icons from the shared icon library" }

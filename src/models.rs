@@ -37,3 +37,9 @@ pub struct ManualServiceRecord {
     pub icon_name: Option<String>,
     pub icon_path: Option<String>,
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AuthStatus {
+    pub authenticated: bool,
+    pub display_name: Option<String>,
+}

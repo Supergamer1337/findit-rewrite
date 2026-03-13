@@ -13,6 +13,7 @@ pub fn Header(categories: Vec<Category>) -> Element {
                 for cat in categories.clone() {
                     a { href: "#{category_anchor_id(&cat.category)}", "{cat.category}" }
                 }
+                a { href: "/admin", "Admin" }
             }
 
             button {
@@ -41,6 +42,11 @@ pub fn Header(categories: Vec<Category>) -> Element {
                             onclick: move |_| show_nav.set(false),
                             "{cat.category}"
                         }
+                    }
+                    a {
+                        href: "/admin",
+                        onclick: move |_| show_nav.set(false),
+                        "Admin"
                     }
                 }
             }

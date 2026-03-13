@@ -29,6 +29,30 @@ If a service cannot be discovered through Docker, you can add it from the admin 
 - Manual services support the same fields as Docker labels: title, URL, description, category, optional GitHub URL, and optional icon.
 - Icons are selected from the shared icon library managed in the same admin panel.
 
+### Admin Authentication
+
+The admin panel uses OpenID Connect and stores application sessions in SQLite.
+
+- Users authenticate through the configured OIDC provider, currently intended for Gamma at `https://auth.chalmers.it`.
+- The `/admin` page and all admin server mutations are protected.
+- Session state is stored in the app database, while the browser only keeps a secure session cookie.
+
+Copy `.env.example` to `.env` and fill in the OIDC settings before starting the app.
+
+Required authentication variables:
+
+| Variable | Description |
+|----------|-------------|
+| `OIDC_ISSUER_URL` | OIDC issuer URL, e.g. `https://auth.chalmers.it` |
+| `OIDC_CLIENT_ID` | Client ID registered with the provider |
+| `OIDC_CLIENT_SECRET` | Client secret registered with the provider |
+| `OIDC_REDIRECT_URL` | Redirect URI registered with the provider, e.g. `http://localhost:8080/auth/callback` |
+| `SESSION_COOKIE_SECRET` | Long random secret used to encrypt the session cookie |
+
+Optional authentication variables:
+
+- `SESSION_TTL_HOURS` to change how long app sessions remain valid.
+
 ### Running findIT
 
 #### Prerequisites
@@ -40,6 +64,7 @@ If a service cannot be discovered through Docker, you can add it from the admin 
 To start the development server:
 
 ```bash
+cp .env.example .env
 dx serve
 ```
 

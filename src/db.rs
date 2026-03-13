@@ -11,6 +11,9 @@ use tokio::fs;
 
 use crate::models::{IconRecord, ManualServiceRecord};
 
+#[cfg(feature = "server")]
+use crate::auth::server::AuthSession;
+
 /// Process-global connection pool, initialised once at startup.
 static POOL: OnceLock<SqlitePool> = OnceLock::new();
 
@@ -102,6 +105,46 @@ pub async fn init_db() -> Result<&'static SqlitePool, sqlx::Error> {
     .execute(&pool)
     .await?;
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS oidc_login_attempts (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            state         TEXT    NOT NULL UNIQUE,
+            nonce         TEXT    NOT NULL,
+            pkce_verifier TEXT    NOT NULL,
+            next_path     TEXT    NOT NULL,
+            created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+            expires_at    TEXT    NOT NULL
+        )
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS auth_sessions (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_token_hash TEXT    NOT NULL UNIQUE,
+            subject            TEXT    NOT NULL,
+            issuer             TEXT    NOT NULL,
+            display_name       TEXT,
+            created_at         TEXT    NOT NULL DEFAULT (datetime('now')),
+            expires_at         TEXT    NOT NULL,
+            last_seen_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+        )
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query("DELETE FROM oidc_login_attempts WHERE expires_at <= datetime('now')")
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM auth_sessions WHERE expires_at <= datetime('now')")
+        .execute(&pool)
+        .await?;
+
     // Seed existing bundled SVGs from assets/images/.
     seed_existing_icons(&pool).await?;
 
@@ -114,6 +157,10 @@ pub fn sha256_hex(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data);
     hex::encode(hasher.finalize())
+}
+
+pub struct OidcLoginAttempt {
+    pub next_path: String,
 }
 
 /// Copy a bundled image into /data/icons using its hash as the filename, then
@@ -458,6 +505,133 @@ pub async fn update_manual_service(
 pub async fn delete_manual_service(pool: &SqlitePool, id: i64) -> Result<(), sqlx::Error> {
     sqlx::query("DELETE FROM manual_services WHERE id = ?")
         .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn create_oidc_login_attempt(
+    pool: &SqlitePool,
+    state: &str,
+    nonce: &str,
+    pkce_verifier: &str,
+    next_path: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM oidc_login_attempts WHERE expires_at <= datetime('now')")
+        .execute(pool)
+        .await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO oidc_login_attempts (state, nonce, pkce_verifier, next_path, expires_at)
+        VALUES (?, ?, ?, ?, datetime('now', '+10 minutes'))
+        "#,
+    )
+    .bind(state)
+    .bind(nonce)
+    .bind(pkce_verifier)
+    .bind(next_path)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn consume_oidc_login_attempt(
+    pool: &SqlitePool,
+    state: &str,
+) -> Result<Option<OidcLoginAttempt>, sqlx::Error> {
+    let row = sqlx::query(
+        r#"
+        SELECT nonce, pkce_verifier, next_path
+        FROM oidc_login_attempts
+        WHERE state = ? AND expires_at > datetime('now')
+        "#,
+    )
+    .bind(state)
+    .fetch_optional(pool)
+    .await?;
+
+    sqlx::query("DELETE FROM oidc_login_attempts WHERE state = ?")
+        .bind(state)
+        .execute(pool)
+        .await?;
+
+    Ok(row.map(|row| OidcLoginAttempt {
+        next_path: row.get("next_path"),
+    }))
+}
+
+#[cfg(feature = "server")]
+pub async fn create_auth_session(
+    pool: &SqlitePool,
+    session_token: &str,
+    subject: &str,
+    issuer: &str,
+    display_name: Option<&str>,
+    ttl_hours: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM auth_sessions WHERE expires_at <= datetime('now')")
+        .execute(pool)
+        .await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO auth_sessions (
+            session_token_hash,
+            subject,
+            issuer,
+            display_name,
+            expires_at
+        )
+        VALUES (?, ?, ?, ?, datetime('now', ? || ' hours'))
+        "#,
+    )
+    .bind(sha256_hex(session_token.as_bytes()))
+    .bind(subject)
+    .bind(issuer)
+    .bind(display_name)
+    .bind(ttl_hours)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+#[cfg(feature = "server")]
+pub async fn get_auth_session_by_token(
+    pool: &SqlitePool,
+    session_token: &str,
+) -> Result<Option<AuthSession>, sqlx::Error> {
+    let token_hash = sha256_hex(session_token.as_bytes());
+    let row = sqlx::query(
+        r#"
+        SELECT id, subject, issuer, display_name
+        FROM auth_sessions
+        WHERE session_token_hash = ? AND expires_at > datetime('now')
+        "#,
+    )
+    .bind(&token_hash)
+    .fetch_optional(pool)
+    .await?;
+
+    if row.is_some() {
+        sqlx::query(
+            "UPDATE auth_sessions SET last_seen_at = datetime('now') WHERE session_token_hash = ?",
+        )
+        .bind(&token_hash)
+        .execute(pool)
+        .await?;
+    }
+
+    Ok(row.map(|row| AuthSession {
+        display_name: row.get("display_name"),
+    }))
+}
+
+pub async fn delete_auth_session(pool: &SqlitePool, session_token: &str) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM auth_sessions WHERE session_token_hash = ?")
+        .bind(sha256_hex(session_token.as_bytes()))
         .execute(pool)
         .await?;
     Ok(())
