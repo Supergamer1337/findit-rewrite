@@ -39,8 +39,7 @@ async fn server_main() {
     let config = ServeConfig::default();
 
     // Get the address the Dioxus CLI expects (falls back to configured host/port).
-    let ip = dioxus::cli_config::server_ip()
-        .unwrap_or(app_config.host);
+    let ip = dioxus::cli_config::server_ip().unwrap_or(app_config.host);
     let port = dioxus::cli_config::server_port().unwrap_or(app_config.port);
     let address = std::net::SocketAddr::new(ip, port);
 

@@ -30,7 +30,15 @@ pub fn AdminRoute() -> Element {
     let auth_status = use_server_future(get_auth_status)?;
 
     match auth_status.value()() {
-        Some(Ok(status)) if status.authenticated => rsx! { Admin {} },
+        Some(Ok(status)) if status.authenticated && status.is_admin => rsx! { Admin {} },
+        Some(Ok(status)) if status.authenticated => rsx! {
+            div { class: "app-container",
+                div { class: "error-container",
+                    h1 { class: "error-title", "Access Denied" }
+                    p { class: "error-message", "You do not have permission to view the admin page." }
+                }
+            }
+        },
         Some(Ok(_)) => rsx! { LoginPage { next: Some("/admin".to_string()) } },
         Some(Err(err)) => rsx! {
             div { class: "app-container",

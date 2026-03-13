@@ -10,7 +10,8 @@ pub async fn get_auth_status() -> Result<AuthStatus, ServerFnError> {
         let session = server::require_optional_session().await?;
         return Ok(AuthStatus {
             authenticated: session.is_some(),
-            display_name: session.and_then(|session| session.display_name),
+            display_name: session.clone().and_then(|session| session.display_name),
+            is_admin: session.map_or(false, |session| session.is_admin),
         });
     }
 
@@ -18,6 +19,7 @@ pub async fn get_auth_status() -> Result<AuthStatus, ServerFnError> {
     Ok(AuthStatus {
         authenticated: false,
         display_name: None,
+        is_admin: false,
     })
 }
 
@@ -25,22 +27,18 @@ pub async fn get_auth_status() -> Result<AuthStatus, ServerFnError> {
 pub mod server {
     use std::sync::Arc;
 
+    use axum::extract::FromRef;
     use axum::{
         extract::{Query, Request, State},
         http::{HeaderMap, StatusCode, Uri},
         middleware::Next,
         response::{IntoResponse, Redirect, Response},
     };
-    use axum::extract::FromRef;
     use axum_extra::extract::cookie::{Cookie, Key, PrivateCookieJar, SameSite};
     use cookie::time::Duration;
     use dioxus::prelude::ServerFnError;
     use dioxus_fullstack_core::FullstackContext;
-    use openidconnect::{
-        core::CoreProviderMetadata,
-        reqwest::Client as OidcHttpClient,
-        IssuerUrl,
-    };
+    use openidconnect::{core::CoreProviderMetadata, reqwest::Client as OidcHttpClient, IssuerUrl};
     use reqwest::redirect::Policy;
     use serde::{Deserialize, Serialize};
 
@@ -67,6 +65,7 @@ pub mod server {
     #[derive(Clone, Debug)]
     pub struct AuthSession {
         pub display_name: Option<String>,
+        pub is_admin: bool,
     }
 
     #[derive(Clone, Debug)]
@@ -98,11 +97,10 @@ pub mod server {
         }
     }
 
-    pub async fn build_auth_state() -> Result<Arc<AuthState>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn build_auth_state(
+    ) -> Result<Arc<AuthState>, Box<dyn std::error::Error + Send + Sync>> {
         let cfg = config::get();
-        let discovery_http_client = OidcHttpClient::builder()
-            .redirect(Policy::none())
-            .build()?;
+        let discovery_http_client = OidcHttpClient::builder().redirect(Policy::none()).build()?;
         let oidc_http_client = reqwest::Client::builder()
             .redirect(Policy::limited(10))
             .build()?;
@@ -124,7 +122,9 @@ pub mod server {
             .ok_or("OIDC provider metadata did not include a userinfo endpoint")?;
 
         Ok(Arc::new(AuthState {
-            cookie_key: Key::from(derived_cookie_key(cfg.session_cookie_secret.as_bytes()).as_slice()),
+            cookie_key: Key::from(
+                derived_cookie_key(cfg.session_cookie_secret.as_bytes()).as_slice(),
+            ),
             cookie_name: SESSION_COOKIE_NAME.to_string(),
             session_ttl_hours: cfg.session_ttl_hours,
             oidc_client_id: cfg.oidc_client_id.clone(),
@@ -155,15 +155,9 @@ pub mod server {
         let state = random_token();
         let auth_url = build_authorization_url(&auth_state, &state).map_err(internal_response)?;
 
-        db::create_oidc_login_attempt(
-            db::pool(),
-            &state,
-            "",
-            "",
-            &next,
-        )
-        .await
-        .map_err(internal_response)?;
+        db::create_oidc_login_attempt(db::pool(), &state, "", "", &next)
+            .await
+            .map_err(internal_response)?;
 
         Ok(Redirect::to(&auth_url))
     }
@@ -179,8 +173,8 @@ pub mod server {
             .ok_or_else(|| unauthorized_response("Login attempt not found or expired"))?;
 
         let token_response = exchange_code(&auth_state, query.code)
-        .await
-        .map_err(internal_response)?;
+            .await
+            .map_err(internal_response)?;
         let userinfo = fetch_userinfo(&auth_state, &token_response.access_token)
             .await
             .map_err(internal_response)?;
@@ -194,12 +188,25 @@ pub mod server {
             .or(userinfo.email);
 
         let session_token = random_token();
+        let admin_groups = &config::get().gamma_admin_groups;
+        let is_admin = if !admin_groups.is_empty() {
+            check_if_admin(&auth_state, &subject, admin_groups)
+                .await
+                .unwrap_or_else(|e| {
+                    eprintln!("Failed to check Gamma admin status: {}", e);
+                    false
+                })
+        } else {
+            false
+        };
+
         db::create_auth_session(
             db::pool(),
             &session_token,
             &subject,
             &issuer,
             display_name.as_deref(),
+            is_admin,
             auth_state.session_ttl_hours,
         )
         .await
@@ -229,8 +236,17 @@ pub mod server {
             .ok_or_else(|| ServerFnError::new("Authentication required"))
     }
 
+    pub async fn require_admin_request() -> Result<AuthSession, ServerFnError> {
+        let session = require_authenticated_request().await?;
+        if !session.is_admin {
+            return Err(ServerFnError::new("Forbidden: Admin access required"));
+        }
+        Ok(session)
+    }
+
     pub async fn require_optional_session() -> Result<Option<AuthSession>, ServerFnError> {
-        let ctx = FullstackContext::current().ok_or_else(|| ServerFnError::new("Missing request context"))?;
+        let ctx = FullstackContext::current()
+            .ok_or_else(|| ServerFnError::new("Missing request context"))?;
         if let Some(auth) = ctx.extension::<RequestAuth>() {
             Ok(auth.0)
         } else {
@@ -252,10 +268,16 @@ pub mod server {
         cookie
     }
 
-    async fn load_session_from_headers(headers: &HeaderMap, auth_state: &AuthState) -> Option<AuthSession> {
+    async fn load_session_from_headers(
+        headers: &HeaderMap,
+        auth_state: &AuthState,
+    ) -> Option<AuthSession> {
         let jar = PrivateCookieJar::from_headers(headers, auth_state.cookie_key.clone());
         let token = jar.get(&auth_state.cookie_name)?.value().to_string();
-        db::get_auth_session_by_token(db::pool(), &token).await.ok().flatten()
+        db::get_auth_session_by_token(db::pool(), &token)
+            .await
+            .ok()
+            .flatten()
     }
 
     fn sanitize_next(next: Option<&str>) -> String {
@@ -397,6 +419,82 @@ pub mod server {
             .map_err(|err| format!("Failed to parse Gamma userinfo response: {err}"))
     }
 
+    #[derive(Deserialize)]
+    struct GammaSuperGroupInfo {
+        name: String,
+    }
+
+    #[derive(Deserialize)]
+    struct GammaGroupInfo {
+        #[serde(rename = "superGroup", default)]
+        super_group: Option<GammaSuperGroupInfo>,
+    }
+
+    #[derive(Deserialize)]
+    struct GammaGroupMember {
+        group: GammaGroupInfo,
+    }
+
+    #[derive(Deserialize)]
+    struct GammaUserInfoWithGroups {
+        groups: Vec<GammaGroupMember>,
+    }
+
+    async fn check_if_admin(
+        auth_state: &AuthState,
+        uuid: &str,
+        admin_groups: &[String],
+    ) -> Result<bool, String> {
+        let url = format!(
+            "{}/api/info/v1/users/{}",
+            config::get().oidc_issuer_url.trim_end_matches('/'),
+            uuid
+        );
+
+        let response = auth_state
+            .oidc_http_client
+            .get(&url)
+            .header(
+                "Authorization",
+                format!(
+                    "pre-shared {}:{}",
+                    config::get().gamma_api_client_id,
+                    config::get().gamma_api_key
+                ),
+            )
+            .header(reqwest::header::ACCEPT, "application/json")
+            .send()
+            .await
+            .map_err(|err| format!("Failed to reach Gamma groups API: {err}"))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(format!("Gamma groups API returned {status}. Body: {body}"));
+        }
+
+        let body = response
+            .text()
+            .await
+            .map_err(|err| format!("Failed to read Gamma groups API response: {err}"))?;
+
+        let user_info: GammaUserInfoWithGroups = serde_json::from_str(&body)
+            .map_err(|err| format!("Failed to parse Gamma groups response: {err}"))?;
+
+        println!("[Auth] User {} belongs to Gamma superGroups:", uuid);
+        let mut is_admin = false;
+        for member in &user_info.groups {
+            if let Some(super_group) = &member.group.super_group {
+                println!("  - {}", super_group.name);
+                if admin_groups.iter().any(|ag| ag == &super_group.name) {
+                    is_admin = true;
+                }
+            }
+        }
+
+        Ok(is_admin)
+    }
+
     fn is_secure_cookie() -> bool {
         match config::get().oidc_redirect_url.parse::<Uri>() {
             Ok(uri) => uri.scheme_str() == Some("https"),
@@ -411,7 +509,6 @@ pub mod server {
     fn internal_response(error: impl std::fmt::Display) -> Response {
         (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response()
     }
-
 
     impl<S> axum::extract::FromRequestParts<S> for RequestAuth
     where

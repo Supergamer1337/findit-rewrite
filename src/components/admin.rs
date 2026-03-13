@@ -23,7 +23,7 @@ pub fn Admin() -> Element {
     let mut edit_file_ext = use_signal(|| Option::<String>::None);
     let mut edit_file_label = use_signal(|| "Keep existing image".to_string());
     let mut edit_error = use_signal(|| Option::<String>::None);
-     let mut edit_loading = use_signal(|| false);
+    let mut edit_loading = use_signal(|| false);
 
     let mut new_service_title = use_signal(String::new);
     let mut new_service_url = use_signal(String::new);
@@ -47,7 +47,6 @@ pub fn Admin() -> Element {
 
     let mut modal_open = use_signal(|| false);
     let mut modal_type = use_signal(|| Option::<String>::None);
-
 
     let icon_count = match icons() {
         Some(Ok(icon_list)) => icon_list.len().to_string(),
@@ -897,12 +896,7 @@ fn read_file_to_signal(
 }
 
 #[component]
-fn Modal(
-    title: String,
-    is_open: bool,
-    children: Element,
-    on_close: EventHandler<()>,
-) -> Element {
+fn Modal(title: String, is_open: bool, children: Element, on_close: EventHandler<()>) -> Element {
     rsx! {
         if is_open {
             // Overlay and modal are siblings so the modal's backdrop-filter

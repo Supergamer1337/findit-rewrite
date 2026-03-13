@@ -129,6 +129,7 @@ pub async fn init_db() -> Result<&'static SqlitePool, sqlx::Error> {
             subject            TEXT    NOT NULL,
             issuer             TEXT    NOT NULL,
             display_name       TEXT,
+            is_admin           BOOLEAN NOT NULL DEFAULT 0,
             created_at         TEXT    NOT NULL DEFAULT (datetime('now')),
             expires_at         TEXT    NOT NULL,
             last_seen_at       TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -144,6 +145,10 @@ pub async fn init_db() -> Result<&'static SqlitePool, sqlx::Error> {
     sqlx::query("DELETE FROM auth_sessions WHERE expires_at <= datetime('now')")
         .execute(&pool)
         .await?;
+
+    let _ = sqlx::query("ALTER TABLE auth_sessions ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0")
+        .execute(&pool)
+        .await;
 
     // Seed existing bundled SVGs from assets/images/.
     seed_existing_icons(&pool).await?;
@@ -569,6 +574,7 @@ pub async fn create_auth_session(
     subject: &str,
     issuer: &str,
     display_name: Option<&str>,
+    is_admin: bool,
     ttl_hours: i64,
 ) -> Result<(), sqlx::Error> {
     sqlx::query("DELETE FROM auth_sessions WHERE expires_at <= datetime('now')")
@@ -582,15 +588,17 @@ pub async fn create_auth_session(
             subject,
             issuer,
             display_name,
+            is_admin,
             expires_at
         )
-        VALUES (?, ?, ?, ?, datetime('now', ? || ' hours'))
+        VALUES (?, ?, ?, ?, ?, datetime('now', ? || ' hours'))
         "#,
     )
     .bind(sha256_hex(session_token.as_bytes()))
     .bind(subject)
     .bind(issuer)
     .bind(display_name)
+    .bind(is_admin)
     .bind(ttl_hours)
     .execute(pool)
     .await?;
@@ -606,7 +614,7 @@ pub async fn get_auth_session_by_token(
     let token_hash = sha256_hex(session_token.as_bytes());
     let row = sqlx::query(
         r#"
-        SELECT id, subject, issuer, display_name
+        SELECT id, subject, issuer, display_name, is_admin
         FROM auth_sessions
         WHERE session_token_hash = ? AND expires_at > datetime('now')
         "#,
@@ -626,10 +634,14 @@ pub async fn get_auth_session_by_token(
 
     Ok(row.map(|row| AuthSession {
         display_name: row.get("display_name"),
+        is_admin: row.get("is_admin"),
     }))
 }
 
-pub async fn delete_auth_session(pool: &SqlitePool, session_token: &str) -> Result<(), sqlx::Error> {
+pub async fn delete_auth_session(
+    pool: &SqlitePool,
+    session_token: &str,
+) -> Result<(), sqlx::Error> {
     sqlx::query("DELETE FROM auth_sessions WHERE session_token_hash = ?")
         .bind(sha256_hex(session_token.as_bytes()))
         .execute(pool)
