@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     binaryen \
     ca-certificates \
     curl \
+    libsqlite3-dev \
+    libssl-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL "https://github.com/cargo-bins/cargo-binstall/releases/download/${CARGO_BINSTALL_VERSION}/cargo-binstall-x86_64-unknown-linux-gnu.tgz" \
@@ -27,7 +30,7 @@ COPY src ./src/
 COPY assets ./assets/
 
 RUN touch src/main.rs
-RUN dx build --release --fullstack @client --target wasm32-unknown-unknown
+RUN dx build --release --fullstack --force-sequential
 
 FROM rust:1.93-alpine AS server-builder
 
@@ -54,6 +57,13 @@ COPY assets ./assets/
 RUN touch src/main.rs
 RUN cargo build --release --no-default-features --features server
 
+FROM client-builder AS asset-patcher
+
+COPY --from=server-builder /app/target/release/find-it /app/find-it
+
+RUN mkdir -p /app/patched-assets
+RUN dx tools assets /app/find-it /app/patched-assets
+
 ##########################
 #    PRODUCTION STAGE    #
 ##########################
@@ -62,8 +72,9 @@ FROM scratch
 WORKDIR /app
 
 COPY --from=server-builder /etc/ssl /etc/ssl
-COPY --from=server-builder /app/target/release/find-it ./find-it
+COPY --from=asset-patcher /app/find-it ./find-it
 COPY --from=client-builder /app/target/dx/find-it/release/web/public ./public
+COPY --from=asset-patcher /app/patched-assets/ ./public/assets/
 
 ENV IP=0.0.0.0
 ENV PORT=8080
